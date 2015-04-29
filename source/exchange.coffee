@@ -17,7 +17,7 @@ logTable = (logger, table, level='trace', delay=false)->
   else
     fn()
 
-module.exports = class Manager
+module.exports = class Exchange
 
   constructor: (@exchangeName, amqpConfig, opts={}) ->
     logger = @logger = log4js.getLogger @exchangeName
@@ -213,9 +213,10 @@ module.exports = class Manager
   unbindQueue: (queueName, pattern)->
     logger = @logger
 
-    @exchangeReady.then =>
-      queue = @queues[queueName]
-      queue.should.exist
-
-      queue.unbind @exchange, pattern, ->
-        logger.debug 'queue [%s] bound to pattern %s', queueName, pattern
+    logger.trace 'bindQueue queueName=%s pattern=%s', queueName.bold, pattern.bold
+    Promise
+      .all([@exchangeReady, @getQueue queueName])
+      .then ([ex, queue]) ->
+        logger.debug 'ex and queue connected'
+        queue.unbind ex, pattern, ->
+          logger.debug 'queue [%s] bound to pattern %s', queueName, pattern

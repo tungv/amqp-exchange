@@ -1,6 +1,6 @@
 {
   "name": "amqp-exchange",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "simple interface to connect to an exchange to publish and to subscribe from a queue with binding",
   "main": "index.js",
   "scripts": {
@@ -23,9 +23,11 @@
   "homepage": "https://github.com/tungv/amqp-exchange",
   "dependencies": {
     "amqp": "^0.2.4",
+    "chai": "^2.3.0",
     "cli-table": "^0.3.1",
     "coffee-script": "^1.9.2",
     "colors": "^1.0.3",
-    "lodash": "^3.7.0"
+    "lodash": "^3.7.0",
+    "log4js": "^0.6.24"
   }
 }

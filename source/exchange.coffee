@@ -96,7 +96,7 @@ module.exports = class Exchange
         _timestamps.exchange = Date.now()
         logTable logger, _info, 'fatal', 200
 
-        @exchange = connection.exchange @exchangeName, {}, (err) =>
+        @exchange = connection.exchange @exchangeName, opts, (err) =>
           now = Date.now()
           duration = now - _timestamps.exchange
           _timestamps.exchange = now

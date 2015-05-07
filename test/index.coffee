@@ -1,9 +1,17 @@
 Exchange = require '../index'
 _ = require 'lodash'
 
+chai = require('chai')
+should = chai.should()
+expect = chai.expect
+
+
 describe 'Connection', ->
   randomQueue = "test queue #{ String(Math.random()).substring 1 }"
+  randomExchange = "test.durable.exchange" ##{ String(Math.random()).substring 1 }"
+
   ex2 = null
+  exDurable = null
 
   ## make sure test queue is bound to test.exchange2 before running any tests
   before (done)->
@@ -17,6 +25,13 @@ describe 'Connection', ->
   after ->
     ex2.queues[randomQueue].destroy()
 
+  before (done)->
+    exDurable = new Exchange randomExchange, {host: 'localhost'}, {durable: true}, {logLevel: 'FATAL'}
+    exDurable.exchangeReady.then -> done()
+
+  after ->
+    exDurable.exchange.destroy()
+
   it 'should connect', (done)->
     ex = new Exchange 'test.exchange', {host:'localhost'}, {logLevel:'WARN'}
     ex.exchangeReady.then (ex) -> done()
@@ -28,3 +43,9 @@ describe 'Connection', ->
       done()
 
     ex.push {text: 'test message'}, {}, 'long.rabbitmq.pattern'
+
+  it 'should throw error when exchange precondition is not met', ->
+    ex = new Exchange randomExchange, {host: 'localhost'}, {durable: false}, {logLevel: 'FATAL'}
+    ex.exchangeReady.catch (err)->
+      console.log 'message', err.message
+      err.message.should.match /PRECONDITION_FAILED/

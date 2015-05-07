@@ -3,6 +3,7 @@ Table = require 'cli-table'
 {EventEmitter} = require 'events'
 rabbit = require 'amqp'
 log4js = require 'log4js'
+domain = require 'domain'
 
 json = (obj) -> JSON.stringify obj, null, ''
 
@@ -75,61 +76,76 @@ module.exports = class Exchange
     logTable logger, _info, 'fatal', 2000
 
     @exchangeReady = new Promise (resolve, reject)=>
-      connection.once 'ready', =>
-        now = Date.now()
-        duration = now - _timestamps.connection
-        _timestamps.connection = now
 
-        logger.debug 'CONNECTION ..... OK\t'.bold.green
-        logger.trace 'connection ready. Connecting to exchange...'
+      d = domain.create()
 
-        _info[0] = [
-          "connection"
-          "connected to #{ json(amqpConfig).bold } in #{ String(duration).bold }ms"
-        ]
+      d.on 'error', (err)->
+        logger.warn 'uncaught exception for this connection', err
+        reject err
 
-        _info[1] = [
-          "exchange"
-          "connecting to #{ @exchangeName.bold }".yellow
-        ]
+      d.add connection
 
-        _timestamps.exchange = Date.now()
-        logTable logger, _info, 'fatal', 200
-
-        @exchange = connection.exchange @exchangeName, opts, (err) =>
+      d.run =>
+        connection.once 'ready', =>
           now = Date.now()
-          duration = now - _timestamps.exchange
-          _timestamps.exchange = now
+          duration = now - _timestamps.connection
+          _timestamps.connection = now
+
+          logger.debug 'CONNECTION ..... OK\t'.bold.green
+          logger.trace 'connection ready. Connecting to exchange...'
+
+          _info[0] = [
+            "connection"
+            "connected to #{ json(amqpConfig).bold } in #{ String(duration).bold }ms"
+          ]
 
           _info[1] = [
             "exchange"
-            "connected to #{ @exchangeName.bold } in #{ String(duration).bold}ms"
+            "connecting to #{ @exchangeName.bold }".yellow
           ]
 
+          _timestamps.exchange = Date.now()
+          logTable logger, _info, 'fatal', 200
+
           try
-            logger.debug 'EXCHANGE ....... OK\t'.bold.green
-            logger.trace 'exchange [%s] connected!', @exchangeName
+            @exchange = connection.exchange @exchangeName, opts, (err) =>
+              now = Date.now()
+              duration = now - _timestamps.exchange
+              _timestamps.exchange = now
 
-            delete @push
-            delete @subscribe
+              _info[1] = [
+                "exchange"
+                "connected to #{ @exchangeName.bold } in #{ String(duration).bold}ms"
+              ]
 
-            duration = String now - _timestamps.init
-            _info[3] = ['push', "ready in #{ duration.bold }ms, queued: #{@_pushQueue.length}"]
-            _info[4] = ['subscribe', "ready in #{ duration.bold }ms, queued: #{@_subQueue.length}"]
+              try
+                logger.debug 'EXCHANGE ....... OK\t'.bold.green
+                logger.trace 'exchange [%s] connected!', @exchangeName
+
+                delete @push
+                delete @subscribe
+
+                duration = String now - _timestamps.init
+                _info[3] = ['push', "ready in #{ duration.bold }ms, queued: #{@_pushQueue.length}"]
+                _info[4] = ['subscribe', "ready in #{ duration.bold }ms, queued: #{@_subQueue.length}"]
 
 
-            ## push queued messages
-            @subscribe params... for params in @_subQueue
-            @push params... for params in @_pushQueue
+                ## push queued messages
+                @subscribe params... for params in @_subQueue
+                @push params... for params in @_pushQueue
 
-            delete @_pushQueue
-            delete @_subQueue
+                delete @_pushQueue
+                delete @_subQueue
 
 
-            resolve @exchange
-            logTable logger, _info, 'info', 100
+                resolve @exchange
+                logTable logger, _info, 'info', 100
 
+              catch ex
+                logger.warn 'error exchange', ex
+                reject ex
           catch ex
+
             logger.warn 'error exchange', ex
             reject ex
 
@@ -183,7 +199,7 @@ module.exports = class Exchange
       deliveryMode: 2
     }
 
-  subscribe: (queueName, handler)->
+  subscribe: (queueName, handler, opts={ack: false})->
     logger = @logger
     @logger.trace 'calling subscribe (immediate)'
 
@@ -192,7 +208,7 @@ module.exports = class Exchange
 
     @getQueue(queueName).then (queue)->
       logger.trace "queue.subscribe {ack: false}, (message, headers, deliveryInfo, messageObj)"
-      queue.subscribe {ack: false}, (message, headers, deliveryInfo, messageObj) ->
+      queue.subscribe opts, (message, headers, deliveryInfo, messageObj) ->
         logger.debug 'received message', message.event
         logger.debug ' > event=%s', message.event
         logger.trace ' > ', message, 'retry=', deliveryInfo.redelivered

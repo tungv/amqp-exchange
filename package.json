@@ -1,6 +1,6 @@
 {
   "name": "amqp-exchange",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "simple interface to connect to an exchange to publish and to subscribe from a queue with binding",
   "main": "index.js",
   "scripts": {

@@ -192,10 +192,12 @@ module.exports = class Exchange
           logger.warn 'queue error', ex
           reject ex
 
-  push: (message, headers, key)->
-    @logger.trace 'calling push (immediate)', key
+  push: (data, headers, key)->
+    message = {}
+    message["data"] = JSON.stringify(data)
+    @logger.trace 'calling push (immediate)', key, message
     @exchange.publish key, message, {
-      headers
+      headers,
       deliveryMode: 2
     }
 
